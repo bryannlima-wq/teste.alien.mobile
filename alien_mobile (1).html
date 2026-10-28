@@ -1,0 +1,2377 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <title>Alien Vanguard 3D - Arena Shooter</title>
+
+    <!-- Tailwind CSS CDN -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Three.js CDN -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- FontAwesome icons CDN -->
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
+
+
+
+        body, html {
+
+            margin: 0;
+
+            padding: 0;
+
+            width: 100%;
+
+            height: 100%;
+
+            overflow: hidden;
+
+            background-color: #050811;
+
+            font-family: 'Rajdhani', sans-serif;
+
+            user-select: none;
+
+        }
+
+
+
+        .font-orbitron {
+
+            font-family: 'Orbitron', sans-serif;
+
+        }
+
+
+
+        #game-canvas {
+
+            width: 100%;
+
+            height: 100%;
+
+            display: block;
+
+        }
+
+
+
+        /* Damage Flash FX */
+
+        #damage-flash {
+
+            pointer-events: none;
+
+            transition: opacity 0.15s ease-out;
+
+        }
+
+
+
+        /* Custom Crosshair */
+
+        #crosshair {
+
+            position: fixed;
+
+            top: 0;
+
+            left: 0;
+
+            width: 32px;
+
+            height: 32px;
+
+            pointer-events: none;
+
+            transform: translate(-50%, -50%);
+
+            z-index: 50;
+
+        }
+
+
+
+        .glow-text {
+
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.7), 0 0 20px rgba(0, 240, 255, 0.4);
+
+        }
+
+
+
+        .glow-red {
+
+            text-shadow: 0 0 10px rgba(255, 30, 30, 0.8), 0 0 20px rgba(255, 30, 30, 0.5);
+
+        }
+
+
+
+        .glow-green {
+
+            text-shadow: 0 0 10px rgba(30, 255, 100, 0.8);
+
+        }
+
+
+
+        /* Glassmorphic UI Card */
+
+        .glass-panel {
+
+            background: rgba(10, 16, 30, 0.75);
+
+            backdrop-filter: blur(12px);
+
+            border: 1px solid rgba(0, 240, 255, 0.2);
+
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+
+        }
+
+    
+
+        /* Controles touch para celular */
+        #mobile-controls { display: none; }
+
+        @media (pointer: coarse), (max-width: 800px) {
+            #mobile-controls {
+                display: block; position: fixed; inset: 0; z-index: 40;
+                pointer-events: none; touch-action: none; font-family: Arial, sans-serif;
+            }
+            #mobile-dpad {
+                position: absolute; left: 12px; bottom: max(20px, env(safe-area-inset-bottom));
+                width: 145px; pointer-events: auto;
+            }
+            .dpad-middle { display: flex; justify-content: center; gap: 5px; margin-top: 5px; }
+            .touch-btn {
+                width: 44px; height: 44px; border: 2px solid #00f0ff; border-radius: 12px;
+                background: rgba(0, 30, 50, .86); color: #fff; font-size: 20px; font-weight: bold;
+                touch-action: none; user-select: none; -webkit-user-select: none;
+            }
+            .touch-btn:active { background: #008cff; }
+            #btn-up { display: block; margin: auto; }
+            #mobile-aim {
+                position: absolute; top: 12%; right: 0; bottom: 100px; width: 48%;
+                color: rgba(255,255,255,.28); font: 10px Arial, sans-serif; text-align: center;
+                padding-top: 8px; box-sizing: border-box; pointer-events: auto; touch-action: none;
+                user-select: none; -webkit-user-select: none;
+            }
+            #mobile-shoot {
+                position: absolute; right: 16px; bottom: max(22px, env(safe-area-inset-bottom));
+                width: 100px; height: 62px; border: 2px solid #00f0ff; border-radius: 18px;
+                background: rgba(0, 150, 220, .9); color: white; font-size: 14px; font-weight: 900;
+                pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none;
+                box-shadow: 0 0 18px rgba(0,240,255,.25);
+            }
+            #mobile-shoot:active { background: #00f0ff; color: #00111c; }
+            #game-canvas { touch-action: none; }
+            #crosshair { pointer-events: none; }
+        }
+        @media (max-height: 500px) and (pointer: coarse) {
+            #mobile-dpad { left: 8px; bottom: 8px; transform: scale(.82); transform-origin: bottom left; }
+            #mobile-shoot { right: 10px; bottom: 10px; width: 84px; height: 52px; }
+            #mobile-aim { bottom: 70px; }
+        }
+
+    </style>
+
+</head>
+
+<body class="bg-slate-950 text-white select-none">
+
+
+
+    <!-- Canvas principal do jogo -->
+
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Controles de toque para celular -->
+    <div id="mobile-controls" aria-label="Controles do jogo para celular">
+        <div id="mobile-dpad" aria-label="Movimento">
+            <button type="button" class="touch-btn" data-key="w" id="btn-up" aria-label="Mover para frente">▲</button>
+            <div class="dpad-middle">
+                <button type="button" class="touch-btn" data-key="a" aria-label="Mover para esquerda">◀</button>
+                <button type="button" class="touch-btn" data-key="s" aria-label="Mover para trás">▼</button>
+                <button type="button" class="touch-btn" data-key="d" aria-label="Mover para direita">▶</button>
+            </div>
+        </div>
+        <div id="mobile-aim" aria-label="Arraste aqui para mirar">DESLIZE PARA MIRAR</div>
+        <button type="button" id="mobile-shoot" aria-label="Atirar">⚡ ATIRAR</button>
+    </div>
+
+
+
+
+    <!-- Custom Crosshair -->
+
+    <div id="crosshair">
+
+        <svg viewBox="0 0 100 100" class="w-full h-full text-cyan-400 drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]">
+
+            <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="10 15"/>
+
+            <circle cx="50" cy="50" r="5" fill="currentColor"/>
+
+            <line x1="50" y1="10" x2="50" y2="30" stroke="currentColor" stroke-width="3"/>
+
+            <line x1="50" y1="70" x2="50" y2="90" stroke="currentColor" stroke-width="3"/>
+
+            <line x1="10" y1="50" x2="30" y2="50" stroke="currentColor" stroke-width="3"/>
+
+            <line x1="70" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="3"/>
+
+        </svg>
+
+    </div>
+
+
+
+    <!-- Efeito visual de dano (Screen Flash Red) -->
+
+    <div id="damage-flash" class="fixed inset-0 bg-red-600/30 opacity-0 z-40"></div>
+
+
+
+    <!-- HUD Superior do Jogo -->
+
+    <div id="hud" class="fixed top-0 left-0 right-0 p-4 z-30 pointer-events-none flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+
+
+
+        <!-- Vida do Jogador (HP) -->
+
+        <div class="glass-panel rounded-xl p-3 px-5 flex items-center space-x-4 min-w-[280px]">
+
+            <i class="fa-solid fa-heart-pulse text-red-500 text-2xl animate-pulse"></i>
+
+            <div class="flex-1">
+
+                <div class="flex justify-between text-xs font-orbitron tracking-widest text-slate-300 mb-1">
+
+                    <span>INTEGRIDADE DA ARMADURA</span>
+
+                    <span id="hp-text" class="text-emerald-400 font-bold">100 / 100</span>
+
+                </div>
+
+                <div class="w-full h-3 bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-slate-700">
+
+                    <div id="hp-bar" class="h-full bg-gradient-to-r from-red-500 via-amber-400 to-emerald-400 rounded-full transition-all duration-200 w-full shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Indicador de Onda e Inimigos -->
+
+        <div class="glass-panel rounded-xl px-6 py-2 flex items-center space-x-8 text-center border-cyan-500/30">
+
+            <div>
+
+                <p class="text-[10px] uppercase font-orbitron tracking-wider text-cyan-400">Onda Actual</p>
+
+                <p id="wave-text" class="text-2xl font-black font-orbitron text-cyan-300 glow-text">01</p>
+
+            </div>
+
+            <div class="h-8 w-px bg-slate-700"></div>
+
+            <div>
+
+                <p class="text-[10px] uppercase font-orbitron tracking-wider text-amber-400">Inimigos Restantes</p>
+
+                <p id="enemies-left-text" class="text-2xl font-black font-orbitron text-amber-300">0</p>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Placar e Abates -->
+
+        <div class="glass-panel rounded-xl p-3 px-5 flex items-center space-x-6 min-w-[220px]">
+
+            <div class="text-right flex-1">
+
+                <p class="text-[10px] uppercase font-orbitron tracking-wider text-slate-400">Pontuação</p>
+
+                <p id="score-text" class="text-2xl font-black font-orbitron text-yellow-400 tracking-wider">0000</p>
+
+            </div>
+
+            <div class="bg-cyan-500/10 p-2 rounded-lg border border-cyan-500/30 text-cyan-400">
+
+                <i class="fa-solid fa-crosshairs text-xl"></i>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Guia de Controles On-Screen (Bottom Left) -->
+
+    <div class="fixed bottom-4 left-4 z-30 pointer-events-none hidden sm:block">
+
+        <div class="glass-panel rounded-xl p-3 text-xs text-slate-300 space-y-1.5 border-slate-700/50">
+
+            <div class="flex items-center space-x-2">
+
+                <span class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">W A S D</span>
+
+                <span class="text-slate-400">ou</span>
+
+                <span class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">SETAS</span>
+
+                <span class="text-slate-400">: Mover</span>
+
+            </div>
+
+            <div class="flex items-center space-x-2">
+
+                <span class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">MOUSE</span>
+
+                <span class="text-slate-400">: Mirar</span>
+
+            </div>
+
+            <div class="flex items-center space-x-2">
+
+                <span class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">CLICK ESQ</span>
+
+                <span class="text-slate-400">ou</span>
+
+                <span class="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">ESPAÇO</span>
+
+                <span class="text-slate-400">: Atirar Arma Futurista</span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Banner Central de Transição de Onda -->
+
+    <div id="wave-banner" class="fixed inset-0 pointer-events-none z-30 flex items-center justify-center opacity-0 transition-all duration-500 transform scale-90">
+
+        <div class="glass-panel px-12 py-6 rounded-2xl border-2 border-cyan-400/50 text-center shadow-[0_0_50px_rgba(0,240,255,0.3)]">
+
+            <h2 id="wave-banner-title" class="text-4xl font-black font-orbitron text-cyan-400 tracking-widest glow-text uppercase">ONDA 1</h2>
+
+            <p id="wave-banner-subtitle" class="text-slate-300 mt-2 tracking-wider">PREPARE-SE PARA O COMBATE!</p>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Tela Inicial / Menu de Início -->
+
+    <div id="start-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+
+        <div class="glass-panel max-w-lg w-full rounded-2xl p-8 border border-cyan-500/30 text-center relative overflow-hidden shadow-[0_0_60px_rgba(0,240,255,0.2)]">
+
+            <div class="absolute -top-24 -left-24 w-48 h-48 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+
+
+            <div class="mb-6 inline-flex p-4 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-400 text-4xl">
+
+                <i class="fa-solid fa-shield-halved"></i>
+
+            </div>
+
+
+
+            <h1 class="text-3xl sm:text-4xl font-black font-orbitron text-cyan-400 tracking-wider glow-text mb-2">ALIEN VANGUARD</h1>
+
+            <p class="text-slate-400 text-sm mb-6">Sobreviva às hordas de mutantes alienígenas verdes com sua armadura tática e arma energética futurista.</p>
+
+
+
+            <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-800 text-left text-xs text-slate-300 space-y-2 mb-6">
+
+                <div class="flex items-center space-x-2 text-cyan-300 font-bold font-orbitron">
+
+                    <i class="fa-solid fa-gamepad"></i>
+
+                    <span>CONTROLES DO JOGO:</span>
+
+                </div>
+
+                <p>• Movimento: <strong class="text-white">W, A, S, D</strong> ou <strong class="text-white">Setas do Teclado</strong></p>
+
+                <p>• Direção / Mira: <strong class="text-white">Ponteiro do Mouse</strong></p>
+
+                <p>• Atirar: <strong class="text-white">Botão Esquerdo do Mouse</strong> ou <strong class="text-white">Barra de Espaço</strong></p>
+
+            </div>
+
+
+
+            <button id="start-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-orbitron text-lg tracking-widest transition-all duration-200 transform hover:scale-[1.02] shadow-[0_0_20px_rgba(0,240,255,0.4)] cursor-pointer">
+
+                INICIAR MISSÃO <i class="fa-solid fa-play ml-2"></i>
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Tela de Game Over -->
+
+    <div id="game-over-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-md p-4 hidden">
+
+        <div class="glass-panel max-w-md w-full rounded-2xl p-8 border border-red-500/40 text-center relative overflow-hidden shadow-[0_0_80px_rgba(239,68,68,0.3)] animate-fade-in">
+
+            <div class="mb-4 inline-flex p-4 rounded-full bg-red-500/10 border border-red-500/40 text-red-500 text-5xl">
+
+                <i class="fa-solid fa-skull"></i>
+
+            </div>
+
+
+
+            <h2 class="text-4xl font-black font-orbitron text-red-500 tracking-wider glow-red mb-1">ARMADURA DESTRUÍDA</h2>
+
+            <p class="text-slate-400 text-xs font-orbitron uppercase tracking-widest mb-6">Você caiu em combate</p>
+
+
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+
+                <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+
+                    <p class="text-[10px] font-orbitron text-slate-400">PONTUAÇÃO</p>
+
+                    <p id="final-score" class="text-2xl font-black font-orbitron text-yellow-400">0</p>
+
+                </div>
+
+                <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800">
+
+                    <p class="text-[10px] font-orbitron text-slate-400">INIMIGOS DERROTADOS</p>
+
+                    <p id="final-kills" class="text-2xl font-black font-orbitron text-emerald-400">0</p>
+
+                </div>
+
+            </div>
+
+
+
+            <button id="restart-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-black font-orbitron text-lg tracking-widest transition-all duration-200 transform hover:scale-[1.02] shadow-[0_0_25px_rgba(239,68,68,0.5)] cursor-pointer">
+
+                REINICIAR BATALHA <i class="fa-solid fa-rotate-right ml-2"></i>
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Lógica Principal do Jogo 3D em Three.js -->
+
+    <script>
+
+        // --- SINTETIZADOR DE ÁUDIO WEB AUDIO API ---
+
+        class SoundFX {
+
+            constructor() {
+
+                this.ctx = null;
+
+            }
+
+
+
+            init() {
+
+                if (!this.ctx) {
+
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+                }
+
+            }
+
+
+
+            playShoot() {
+
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+
+                const gain = this.ctx.createGain();
+
+
+
+                osc.type = 'sawtooth';
+
+                osc.frequency.setValueAtTime(800, now);
+
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+
+
+
+                gain.gain.setValueAtTime(0.3, now);
+
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+
+
+                osc.connect(gain);
+
+                gain.connect(this.ctx.destination);
+
+
+
+                osc.start(now);
+
+                osc.stop(now + 0.15);
+
+            }
+
+
+
+            playHit() {
+
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+
+                const gain = this.ctx.createGain();
+
+
+
+                osc.type = 'square';
+
+                osc.frequency.setValueAtTime(150, now);
+
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+
+
+
+                gain.gain.setValueAtTime(0.25, now);
+
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+
+
+                osc.connect(gain);
+
+                gain.connect(this.ctx.destination);
+
+
+
+                osc.start(now);
+
+                osc.stop(now + 0.12);
+
+            }
+
+
+
+            playPlayerHit() {
+
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+
+                const gain = this.ctx.createGain();
+
+
+
+                osc.type = 'triangle';
+
+                osc.frequency.setValueAtTime(120, now);
+
+                osc.frequency.linearRampToValueAtTime(60, now + 0.25);
+
+
+
+                gain.gain.setValueAtTime(0.4, now);
+
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+
+
+                osc.connect(gain);
+
+                gain.connect(this.ctx.destination);
+
+
+
+                osc.start(now);
+
+                osc.stop(now + 0.25);
+
+            }
+
+
+
+            playEnemyDie() {
+
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+
+                const gain = this.ctx.createGain();
+
+
+
+                osc.type = 'sawtooth';
+
+                osc.frequency.setValueAtTime(200, now);
+
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+
+
+
+                gain.gain.setValueAtTime(0.35, now);
+
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+
+
+                osc.connect(gain);
+
+                gain.connect(this.ctx.destination);
+
+
+
+                osc.start(now);
+
+                osc.stop(now + 0.3);
+
+            }
+
+        }
+
+
+
+        const sfx = new SoundFX();
+
+
+
+        // --- ESTADO DO JOGO ---
+
+        const gameState = {
+
+            isPlaying: false,
+
+            score: 0,
+
+            kills: 0,
+
+            wave: 1,
+
+            playerHp: 100,
+
+            maxHp: 100,
+
+            enemiesRemaining: 0,
+
+            lastShootTime: 0,
+
+            shootCooldown: 140, // milissegundos
+
+        };
+
+
+
+        // Entradas de teclado e mouse
+
+        const keys = {};
+
+        const mouse = new THREE.Vector2();
+
+        const raycaster = new THREE.Raycaster();
+
+        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+        const aimTarget = new THREE.Vector3();
+
+
+
+        // Variáveis do Three.js
+
+        let scene, camera, renderer;
+
+        let playerGroup, soldierMesh, gunGroup, muzzleFlashLight;
+
+        let bullets = [];
+
+        let enemies = [];
+
+        let particles = [];
+
+        let clock = new THREE.Clock();
+
+
+
+        // --- INICIALIZAÇÃO DA CENA 3D ---
+
+        function initScene() {
+
+            const canvas = document.getElementById('game-canvas');
+
+
+
+            // Renderer
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            renderer.shadowMap.enabled = true;
+
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+
+
+            // Scene
+
+            scene = new THREE.Scene();
+
+            scene.background = new THREE.Color(0x070b14);
+
+            scene.fog = new THREE.FogExp2(0x070b14, 0.025);
+
+
+
+            // Camera (Perspectiva Isométrica/Visão Superior de Ação)
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            camera.position.set(0, 22, 16);
+
+            camera.lookAt(0, 0, 0);
+
+
+
+            // Lightings
+
+            const ambientLight = new THREE.AmbientLight(0x2a3d66, 1.2);
+
+            scene.add(ambientLight);
+
+
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+
+            dirLight.position.set(20, 40, 20);
+
+            dirLight.castShadow = true;
+
+            dirLight.shadow.mapSize.width = 2048;
+
+            dirLight.shadow.mapSize.height = 2048;
+
+            dirLight.shadow.camera.near = 0.5;
+
+            dirLight.shadow.camera.far = 100;
+
+            const d = 30;
+
+            dirLight.shadow.camera.left = -d;
+
+            dirLight.shadow.camera.right = d;
+
+            dirLight.shadow.camera.top = d;
+
+            dirLight.shadow.camera.bottom = -d;
+
+            scene.add(dirLight);
+
+
+
+            // Luz de destaque magenta/azul sci-fi de preenchimento
+
+            const pointLight1 = new THREE.PointLight(0x00f0ff, 2, 40);
+
+            pointLight1.position.set(-15, 8, -15);
+
+            scene.add(pointLight1);
+
+
+
+            const pointLight2 = new THREE.PointLight(0x7928ca, 2, 40);
+
+            pointLight2.position.set(15, 8, 15);
+
+            scene.add(pointLight2);
+
+
+
+            // Chão Quadriculado Futurista
+
+            createEnvironment();
+
+
+
+            // Criar Jogador (Soldado Bege + Arma Branca)
+
+            createPlayer();
+
+
+
+            // Event Listeners
+
+            window.addEventListener('resize', onWindowResize);
+
+            window.addEventListener('mousemove', onMouseMove);
+
+            window.addEventListener('keydown', (e) => { keys[e.key] = true; keys[e.code] = true; });
+
+            window.addEventListener('keyup', (e) => { keys[e.key] = false; keys[e.code] = false; });
+
+            window.addEventListener('mousedown', (e) => {
+
+                if (e.button === 0 && gameState.isPlaying) shoot();
+
+            });
+
+        // --- CONTROLES DE TOQUE PARA CELULAR ---
+        // Os botões definem as mesmas teclas usadas pelo teclado do computador.
+        document.querySelectorAll('.touch-btn').forEach((button) => {
+            const key = button.dataset.key;
+            const press = (event) => {
+                event.preventDefault();
+                keys[key] = true;
+                try { button.setPointerCapture(event.pointerId); } catch (_) {}
+            };
+            const release = (event) => {
+                event.preventDefault();
+                keys[key] = false;
+            };
+            button.addEventListener('pointerdown', press);
+            button.addEventListener('pointerup', release);
+            button.addEventListener('pointercancel', release);
+            button.addEventListener('lostpointercapture', () => { keys[key] = false; });
+            button.addEventListener('contextmenu', (event) => event.preventDefault());
+        });
+
+        // Arraste o dedo na área direita para atualizar a mira do raycaster.
+        const mobileAim = document.getElementById('mobile-aim');
+        mobileAim.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            try { mobileAim.setPointerCapture(event.pointerId); } catch (_) {}
+            updateMobileAim(event);
+        });
+        mobileAim.addEventListener('pointermove', (event) => {
+            if (event.pointerType === 'touch' || event.buttons > 0) updateMobileAim(event);
+        });
+        function updateMobileAim(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            const crosshair = document.getElementById('crosshair');
+            if (crosshair) {
+                crosshair.style.left = event.clientX + 'px';
+                crosshair.style.top = event.clientY + 'px';
+            }
+        }
+
+        // Segure ATIRAR para disparo contínuo; soltar interrompe os tiros.
+        const mobileShoot = document.getElementById('mobile-shoot');
+        const stopMobileShoot = (event) => {
+            if (event) event.preventDefault();
+            keys['Space'] = false;
+            keys[' '] = false;
+        };
+        mobileShoot.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            try { mobileShoot.setPointerCapture(event.pointerId); } catch (_) {}
+            keys['Space'] = true;
+        });
+        mobileShoot.addEventListener('pointerup', stopMobileShoot);
+        mobileShoot.addEventListener('pointercancel', stopMobileShoot);
+        mobileShoot.addEventListener('lostpointercapture', () => stopMobileShoot());
+        mobileShoot.addEventListener('contextmenu', (event) => event.preventDefault());
+
+
+        }
+
+
+
+        // --- CONSTRUÇÃO DO CENÁRIO ---
+
+        function createEnvironment() {
+
+            // Textura gerada proceduramente para o chão
+
+            const canvas = document.createElement('canvas');
+
+            canvas.width = 512;
+
+            canvas.height = 512;
+
+            const ctx = canvas.getContext('2d');
+
+
+
+            ctx.fillStyle = '#0c1322';
+
+            ctx.fillRect(0, 0, 512, 512);
+
+
+
+            // Borda e grade
+
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+
+            ctx.lineWidth = 4;
+
+            const gridSize = 64;
+
+            for (let x = 0; x <= 512; x += gridSize) {
+
+                ctx.beginPath();
+
+                ctx.moveTo(x, 0);
+
+                ctx.lineTo(x, 512);
+
+                ctx.stroke();
+
+
+
+                ctx.beginPath();
+
+                ctx.moveTo(0, x);
+
+                ctx.lineTo(512, x);
+
+                ctx.stroke();
+
+            }
+
+
+
+            // Placas de metal e detalhes
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+
+            for (let i = 0; i < 512; i += gridSize) {
+
+                for (let j = 0; j < 512; j += gridSize) {
+
+                    if ((i + j) % 128 === 0) {
+
+                        ctx.fillRect(i + 4, j + 4, gridSize - 8, gridSize - 8);
+
+                    }
+
+                }
+
+            }
+
+
+
+            const texture = new THREE.CanvasTexture(canvas);
+
+            texture.wrapS = THREE.RepeatWrapping;
+
+            texture.wrapT = THREE.RepeatWrapping;
+
+            texture.repeat.set(10, 10);
+
+
+
+            const floorGeo = new THREE.PlaneGeometry(80, 80);
+
+            const floorMat = new THREE.MeshStandardMaterial({
+
+                map: texture,
+
+                roughness: 0.4,
+
+                metalness: 0.6,
+
+            });
+
+
+
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+
+            floor.rotation.x = -Math.PI / 2;
+
+            floor.receiveShadow = true;
+
+            scene.add(floor);
+
+
+
+            // Muros / Barreiras Limítrofes Iluminadas
+
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x111927, roughness: 0.3, metalness: 0.8 });
+
+            const borderGlowMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+
+
+            const wallThickness = 2;
+
+            const wallHeight = 4;
+
+            const arenaSize = 80;
+
+
+
+            const walls = [
+
+                { w: arenaSize, h: wallHeight, d: wallThickness, x: 0, z: -arenaSize/2 },
+
+                { w: arenaSize, h: wallHeight, d: wallThickness, x: 0, z: arenaSize/2 },
+
+                { w: wallThickness, h: wallHeight, d: arenaSize, x: -arenaSize/2, z: 0 },
+
+                { w: wallThickness, h: wallHeight, d: arenaSize, x: arenaSize/2, z: 0 },
+
+            ];
+
+
+
+            walls.forEach(config => {
+
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(config.w, config.h, config.d), wallMat);
+
+                wall.position.set(config.x, config.h / 2, config.z);
+
+                wall.castShadow = true;
+
+                wall.receiveShadow = true;
+
+                scene.add(wall);
+
+
+
+                // Faixa de néon na borda do muro
+
+                const glowStrip = new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+
+                        config.w > config.d ? config.w : config.w + 0.2,
+
+                        0.2,
+
+                        config.d > config.w ? config.d : config.d + 0.2
+
+                    ),
+
+                    borderGlowMat
+
+                );
+
+                glowStrip.position.set(config.x, config.h, config.z);
+
+                scene.add(glowStrip);
+
+            });
+
+        }
+
+
+
+        // --- CRIAÇÃO DO MODELO 3D DO JOGADOR (SOLDADO BEGE - IMAGEM 1) ---
+
+        function createPlayer() {
+
+            playerGroup = new THREE.Group();
+
+
+
+            // Materiais fiéis à Imagem 1 (Armadura Bege / Areia Futurista)
+
+            const beigeArmorMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.5, metalness: 0.3 }); // Cor bege/tan
+
+            const darkJointMat = new THREE.MeshStandardMaterial({ color: 0x1e222a, roughness: 0.8, metalness: 0.2 });  // Traje escuro interno
+
+            const visorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9 });      // Visor capacete
+
+            const redAccentMat = new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.4 });                 // Detalhes vermelhos
+
+
+
+            // Tronco / Peitoral
+
+            const chestGeo = new THREE.BoxGeometry(0.9, 1.1, 0.6);
+
+            const chest = new THREE.Mesh(chestGeo, beigeArmorMat);
+
+            chest.position.y = 1.35;
+
+            chest.castShadow = true;
+
+            playerGroup.add(chest);
+
+
+
+            // Placa central do peito com faixa de detalhe vermelho
+
+            const chestRedDetail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.65), redAccentMat);
+
+            chestRedDetail.position.set(0, 1.45, 0.02);
+
+            playerGroup.add(chestRedDetail);
+
+
+
+            // Ombreiras futuristas
+
+            const shoulderGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+
+            const leftShoulder = new THREE.Mesh(shoulderGeo, beigeArmorMat);
+
+            leftShoulder.position.set(-0.65, 1.7, 0);
+
+            leftShoulder.castShadow = true;
+
+            playerGroup.add(leftShoulder);
+
+
+
+            const rightShoulder = new THREE.Mesh(shoulderGeo, beigeArmorMat);
+
+            rightShoulder.position.set(0.65, 1.7, 0);
+
+            rightShoulder.castShadow = true;
+
+            playerGroup.add(rightShoulder);
+
+
+
+            // Capacete Bege com Visor Escuro e Riscos Vermelhos
+
+            const helmetGroup = new THREE.Group();
+
+            const helmetBase = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.65), beigeArmorMat);
+
+            helmetBase.position.y = 2.15;
+
+            helmetBase.castShadow = true;
+
+            helmetGroup.add(helmetBase);
+
+
+
+            // Visor frontal em ângulo
+
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.3, 0.2), visorMat);
+
+            visor.position.set(0, 2.15, 0.28);
+
+            helmetGroup.add(visor);
+
+
+
+            // Detalhe das listras vermelhas no capacete
+
+            const stripeLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 0.68), redAccentMat);
+
+            stripeLeft.position.set(-0.18, 2.25, 0);
+
+            helmetGroup.add(stripeLeft);
+
+
+
+            const stripeRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 0.68), redAccentMat);
+
+            stripeRight.position.set(0.18, 2.25, 0);
+
+            helmetGroup.add(stripeRight);
+
+
+
+            playerGroup.add(helmetGroup);
+
+
+
+            // Pernas e Joelheiras
+
+            playerGroup.leftLeg = new THREE.Group();
+
+            const thighL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.6, 0.35), beigeArmorMat);
+
+            thighL.position.set(-0.25, 0.6, 0);
+
+            thighL.castShadow = true;
+
+            playerGroup.leftLeg.add(thighL);
+
+
+
+            const shinL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.6, 0.3), darkJointMat);
+
+            shinL.position.set(-0.25, 0.2, 0);
+
+            playerGroup.leftLeg.add(shinL);
+
+
+
+            const kneeL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.25, 0.38), beigeArmorMat);
+
+            kneeL.position.set(-0.25, 0.45, 0.05);
+
+            playerGroup.leftLeg.add(kneeL);
+
+            playerGroup.add(playerGroup.leftLeg);
+
+
+
+            playerGroup.rightLeg = new THREE.Group();
+
+            const thighR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.6, 0.35), beigeArmorMat);
+
+            thighR.position.set(0.25, 0.6, 0);
+
+            thighR.castShadow = true;
+
+            playerGroup.rightLeg.add(thighR);
+
+
+
+            const shinR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.6, 0.3), darkJointMat);
+
+            shinR.position.set(0.25, 0.2, 0);
+
+            playerGroup.rightLeg.add(shinR);
+
+
+
+            const kneeR = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.25, 0.38), beigeArmorMat);
+
+            kneeR.position.set(0.25, 0.45, 0.05);
+
+            playerGroup.rightLeg.add(kneeR);
+
+            playerGroup.add(playerGroup.rightLeg);
+
+
+
+            // --- CRIAÇÃO DA ARMA BRANCA FUTURISTA (REVOLVER DUPLO BRANCO - IMAGEM 3) ---
+
+            gunGroup = new THREE.Group();
+
+
+
+            const whiteMetalMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.8 });
+
+            const darkGunMetal = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.7 });
+
+
+
+            // Corpo/Coronha da Arma
+
+            const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.35, 0.5), whiteMetalMat);
+
+            gunGroup.add(gunBody);
+
+
+
+            // Tambores / Cilindros Duplos
+
+            const cylGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.4, 12);
+
+            const cylTop = new THREE.Mesh(cylGeo, darkGunMetal);
+
+            cylTop.rotation.x = Math.PI / 2;
+
+            cylTop.position.set(0, 0.1, 0.05);
+
+            gunGroup.add(cylTop);
+
+
+
+            const cylBottom = new THREE.Mesh(cylGeo, darkGunMetal);
+
+            cylBottom.rotation.x = Math.PI / 2;
+
+            cylBottom.position.set(0, -0.05, 0.05);
+
+            gunGroup.add(cylBottom);
+
+
+
+            // Canos Duplos Longos Brancos (Estilo Revolver da Imagem 3)
+
+            const barrelGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.1, 12);
+
+
+
+            const barrelTop = new THREE.Mesh(barrelGeo, whiteMetalMat);
+
+            barrelTop.rotation.x = Math.PI / 2;
+
+            barrelTop.position.set(0, 0.1, 0.75);
+
+            barrelTop.castShadow = true;
+
+            gunGroup.add(barrelTop);
+
+
+
+            const barrelBottom = new THREE.Mesh(barrelGeo, whiteMetalMat);
+
+            barrelBottom.rotation.x = Math.PI / 2;
+
+            barrelBottom.position.set(0, -0.05, 0.75);
+
+            barrelBottom.castShadow = true;
+
+            gunGroup.add(barrelBottom);
+
+
+
+            // Enfeite da ponta dos canos (Acessório/Ornamento esculpido)
+
+            const tipDecor1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.15), whiteMetalMat);
+
+            tipDecor1.position.set(0, 0.1, 1.25);
+
+            gunGroup.add(tipDecor1);
+
+
+
+            const tipDecor2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.15), whiteMetalMat);
+
+            tipDecor2.position.set(0, -0.05, 1.25);
+
+            gunGroup.add(tipDecor2);
+
+
+
+            // Ponto de luz de disparo na ponta do cano
+
+            muzzleFlashLight = new THREE.PointLight(0x00f0ff, 0, 8);
+
+            muzzleFlashLight.position.set(0, 0.02, 1.35);
+
+            gunGroup.add(muzzleFlashLight);
+
+
+
+            // Posicionar a Arma nas mãos do Soldado apontando para frente
+
+            gunGroup.position.set(0.35, 1.2, 0.4);
+
+            playerGroup.add(gunGroup);
+
+
+
+            scene.add(playerGroup);
+
+        }
+
+
+
+        // --- CRIAÇÃO DOS INIMIGOS (INIMIGO VERDE / BICHO VERDE - IMAGEM 2) ---
+
+        function createGreenEnemy(x, z) {
+
+            const enemyGroup = new THREE.Group();
+
+
+
+            // Materiais fiéis à Imagem 2 (Pele Verde Mutante, Calça Escura/Prata, Capacete Metalizado e Olho Vermelho)
+
+            const greenSkinMat = new THREE.MeshStandardMaterial({ color: 0x4ae036, roughness: 0.6, metalness: 0.1 });
+
+            const darkPantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.3 });
+
+            const silverArmorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.3, metalness: 0.8 });
+
+            const redEyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+
+
+
+            // Tronco Musculoso Verde
+
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.2, 0.7), greenSkinMat);
+
+            torso.position.y = 1.3;
+
+            torso.castShadow = true;
+
+            enemyGroup.add(torso);
+
+
+
+            // Calça/Pernas Escuras com Proteção Prata
+
+            const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.8, 0.45), darkPantsMat);
+
+            leftLeg.position.set(-0.35, 0.4, 0);
+
+            leftLeg.castShadow = true;
+
+            enemyGroup.add(leftLeg);
+
+
+
+            const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.8, 0.45), darkPantsMat);
+
+            rightLeg.position.set(0.35, 0.4, 0);
+
+            rightLeg.castShadow = true;
+
+            enemyGroup.add(rightLeg);
+
+
+
+            // Proteções metálicas nas botas (Estilo MD2)
+
+            const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.55), silverArmorMat);
+
+            bootL.position.set(-0.35, 0.15, 0.05);
+
+            enemyGroup.add(bootL);
+
+
+
+            const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.55), silverArmorMat);
+
+            bootR.position.set(0.35, 0.15, 0.05);
+
+            enemyGroup.add(bootR);
+
+
+
+            // Cabeça Alienígena Verde com Elmo Metálico Prata
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.6, 0.65), greenSkinMat);
+
+            head.position.y = 2.1;
+
+            head.castShadow = true;
+
+            enemyGroup.add(head);
+
+
+
+            // Elmo/Placa de Metal Prata na cabeça
+
+            const metalHelm = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 0.5), silverArmorMat);
+
+            metalHelm.position.set(0, 2.3, -0.05);
+
+            enemyGroup.add(metalHelm);
+
+
+
+            // Olho Vermelho Ciclópico / Visor Vermelho
+
+            const redEye = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.15), redEyeMat);
+
+            redEye.position.set(0, 2.15, 0.32);
+
+            enemyGroup.add(redEye);
+
+
+
+            // Braço Cibernético Prata com Espinhos no Ombro Esquerdo (Detalhe marcante da Imagem 2)
+
+            const cyberArm = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.1, 0.45), silverArmorMat);
+
+            cyberArm.position.set(-0.75, 1.25, 0);
+
+            cyberArm.castShadow = true;
+
+            enemyGroup.add(cyberArm);
+
+
+
+            const shoulderSpike = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 4), silverArmorMat);
+
+            shoulderSpike.position.set(-0.8, 1.9, 0);
+
+            shoulderSpike.rotation.z = Math.PI / 6;
+
+            enemyGroup.add(shoulderSpike);
+
+
+
+            // Braço Direito Mutante Verde
+
+            const mutantArm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.1, 0.4), greenSkinMat);
+
+            mutantArm.position.set(0.75, 1.25, 0);
+
+            mutantArm.castShadow = true;
+
+            enemyGroup.add(mutantArm);
+
+
+
+            // Posicionamento no mapa
+
+            enemyGroup.position.set(x, 0, z);
+
+
+
+            // Propriedades do Inimigo
+
+            const speed = 0.055 + (gameState.wave * 0.005);
+
+            const maxHealth = 30 + (gameState.wave * 10);
+
+
+
+            const enemyObj = {
+
+                mesh: enemyGroup,
+
+                hp: maxHealth,
+
+                maxHp: maxHealth,
+
+                speed: speed,
+
+                radius: 0.9,
+
+                hitCooldown: 0
+
+            };
+
+
+
+            scene.add(enemyGroup);
+
+            enemies.push(enemyObj);
+
+        }
+
+
+
+        // --- SISTEMA DE TIRO E PROJÉTEIS ---
+
+        function shoot() {
+
+            const now = performance.now();
+
+            if (now - gameState.lastShootTime < gameState.shootCooldown) return;
+
+            gameState.lastShootTime = now;
+
+
+
+            sfx.playShoot();
+
+
+
+            // Posição de origem do disparo (ponta da arma)
+
+            const muzzleWorldPos = new THREE.Vector3();
+
+            gunGroup.getWorldPosition(muzzleWorldPos);
+
+
+
+            // Direção de disparo (onde o jogador está encarando)
+
+            const shootDir = new THREE.Vector3(0, 0, 1).applyQuaternion(playerGroup.quaternion).normalize();
+
+
+
+            // Projétil de Energia Cyan/Azul Reluzente
+
+            const bulletGeo = new THREE.SphereGeometry(0.18, 8, 8);
+
+            const bulletMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+
+            const bulletMesh = new THREE.Mesh(bulletGeo, bulletMat);
+
+
+
+            bulletMesh.position.copy(muzzleWorldPos);
+
+            scene.add(bulletMesh);
+
+
+
+            // Rastro brilhante da bala
+
+            const trailGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.8, 6);
+
+            const trailMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.7 });
+
+            const trail = new THREE.Mesh(trailGeo, trailMat);
+
+            trail.rotation.x = Math.PI / 2;
+
+            trail.position.z = -0.4;
+
+            bulletMesh.add(trail);
+
+
+
+            bullets.push({
+
+                mesh: bulletMesh,
+
+                dir: shootDir,
+
+                speed: 0.8,
+
+                life: 60 // frames
+
+            });
+
+
+
+            // Recuo leve na arma
+
+            gunGroup.position.z = 0.25;
+
+
+
+            // Flash de iluminação na arma
+
+            muzzleFlashLight.intensity = 3;
+
+            setTimeout(() => {
+
+                gunGroup.position.z = 0.4;
+
+                muzzleFlashLight.intensity = 0;
+
+            }, 60);
+
+
+
+            // Partículas de disparo
+
+            createParticles(muzzleWorldPos, 0x00ffff, 5, 0.15);
+
+        }
+
+
+
+        // --- SISTEMA DE PARTÍCULAS (IMPACTOS E EXPLOSÕES) ---
+
+        function createParticles(pos, colorHex, count = 8, speedScale = 0.2) {
+
+            for (let i = 0; i < count; i++) {
+
+                const pGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+
+                const pMat = new THREE.MeshBasicMaterial({ color: colorHex });
+
+                const particle = new THREE.Mesh(pGeo, pMat);
+
+
+
+                particle.position.copy(pos);
+
+
+
+                const vel = new THREE.Vector3(
+
+                    (Math.random() - 0.5) * speedScale,
+
+                    Math.random() * speedScale,
+
+                    (Math.random() - 0.5) * speedScale
+
+                );
+
+
+
+                scene.add(particle);
+
+                particles.push({
+
+                    mesh: particle,
+
+                    vel: vel,
+
+                    life: 25 // quadros de vida
+
+                });
+
+            }
+
+        }
+
+
+
+        // --- CONTROLE DE ONDAS DE INIMIGOS ---
+
+        function startWave(waveNum) {
+
+            gameState.wave = waveNum;
+
+            gameState.enemiesRemaining = 5 + (waveNum * 4);
+
+
+
+            document.getElementById('wave-text').innerText = waveNum.toString().padStart(2, '0');
+
+            document.getElementById('enemies-left-text').innerText = gameState.enemiesRemaining;
+
+
+
+            // Banner da Onda
+
+            const banner = document.getElementById('wave-banner');
+
+            document.getElementById('wave-banner-title').innerText = `ONDA ${waveNum}`;
+
+            document.getElementById('wave-banner-subtitle').innerText = `ALERTA DE INVASÃO ALIENÍGENA! (${gameState.enemiesRemaining} INIMIGOS)`;
+
+
+
+            banner.classList.remove('opacity-0', 'scale-90');
+
+            banner.classList.add('opacity-100', 'scale-100');
+
+
+
+            setTimeout(() => {
+
+                banner.classList.remove('opacity-100', 'scale-100');
+
+                banner.classList.add('opacity-0', 'scale-90');
+
+            }, 2500);
+
+
+
+            // Gerar inimigos ao redor da arena
+
+            let spawned = 0;
+
+            const spawnInterval = setInterval(() => {
+
+                if (!gameState.isPlaying || spawned >= gameState.enemiesRemaining) {
+
+                    clearInterval(spawnInterval);
+
+                    return;
+
+                }
+
+
+
+                // Ângulo aleatório fora do raio do mapa
+
+                const angle = Math.random() * Math.PI * 2;
+
+                const radius = 32; // perto da borda
+
+                const x = Math.cos(angle) * radius;
+
+                const z = Math.sin(angle) * radius;
+
+
+
+                createGreenEnemy(x, z);
+
+                spawned++;
+
+            }, 600);
+
+        }
+
+
+
+        // --- RAYCASTING PARA MIRA DO MOUSE ---
+
+        function onMouseMove(event) {
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+
+
+            // Atualizar crosshair customizado na tela
+
+            const crosshair = document.getElementById('crosshair');
+
+            crosshair.style.left = `${event.clientX}px`;
+
+            crosshair.style.top = `${event.clientY}px`;
+
+        }
+
+
+
+        function updateAim() {
+
+            raycaster.setFromCamera(mouse, camera);
+
+            const target = new THREE.Vector3();
+
+            if (raycaster.ray.intersectPlane(groundPlane, target)) {
+
+                aimTarget.copy(target);
+
+
+
+                // Rotacionar o jogador em direção ao ponto focal do mouse no plano
+
+                const lookAngle = Math.atan2(
+
+                    aimTarget.x - playerGroup.position.x,
+
+                    aimTarget.z - playerGroup.position.z
+
+                );
+
+                playerGroup.rotation.y = lookAngle;
+
+            }
+
+        }
+
+
+
+        // --- ATUALIZAÇÃO E LOOP DE ANIMAÇÃO ---
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+
+
+            const delta = clock.getDelta();
+
+
+
+            if (gameState.isPlaying) {
+
+                updatePlayerMovement();
+
+                updateAim();
+
+                updateBullets();
+
+                updateEnemies();
+
+                updateParticles();
+
+
+
+                // Disparo contínuo segurando ESPAÇO
+
+                if (keys[' '] || keys['Space']) {
+
+                    shoot();
+
+                }
+
+            }
+
+
+
+            renderer.render(scene, camera);
+
+        }
+
+
+
+        // Movimentação do Jogador
+
+        function updatePlayerMovement() {
+
+            const moveSpeed = 0.15;
+
+            let moveX = 0;
+
+            let moveZ = 0;
+
+
+
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) moveZ -= 1;
+
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) moveZ += 1;
+
+            if (keys['a'] || keys['A'] || keys['ArrowLeft']) moveX -= 1;
+
+            if (keys['d'] || keys['D'] || keys['ArrowRight']) moveX += 1;
+
+
+
+            if (moveX !== 0 || moveZ !== 0) {
+
+                const moveVec = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(moveSpeed);
+
+
+
+                // Limite da Arena
+
+                const nextX = playerGroup.position.x + moveVec.x;
+
+                const nextZ = playerGroup.position.z + moveVec.z;
+
+                const limit = 37;
+
+
+
+                if (Math.abs(nextX) < limit) playerGroup.position.x = nextX;
+
+                if (Math.abs(nextZ) < limit) playerGroup.position.z = nextZ;
+
+
+
+                // Animação de caminhada das pernas
+
+                const walkTime = Date.now() * 0.012;
+
+                playerGroup.leftLeg.rotation.x = Math.sin(walkTime) * 0.4;
+
+                playerGroup.rightLeg.rotation.x = -Math.sin(walkTime) * 0.4;
+
+
+
+                // A câmera segue suavemente o jogador
+
+                camera.position.x = playerGroup.position.x;
+
+                camera.position.z = playerGroup.position.z + 16;
+
+            } else {
+
+                // Posição neutra das pernas
+
+                playerGroup.leftLeg.rotation.x = 0;
+
+                playerGroup.rightLeg.rotation.x = 0;
+
+            }
+
+        }
+
+
+
+        // Atualização de Tiros
+
+        function updateBullets() {
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+
+                const b = bullets[i];
+
+                b.mesh.position.addScaledVector(b.dir, b.speed);
+
+                b.life--;
+
+
+
+                let hit = false;
+
+
+
+                // Colisão com Inimigos
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+
+                    const enemy = enemies[j];
+
+                    const dist = b.mesh.position.distanceTo(enemy.mesh.position);
+
+
+
+                    if (dist < enemy.radius + 0.3) {
+
+                        hit = true;
+
+                        sfx.playHit();
+
+
+
+                        // Dano ao Inimigo
+
+                        enemy.hp -= 15;
+
+
+
+                        // Impulso/Knockback no inimigo ao ser atingido
+
+                        enemy.mesh.position.addScaledVector(b.dir, 0.3);
+
+
+
+                        // Partículas de sangue verde alienígena
+
+                        createParticles(b.mesh.position, 0x4ae036, 10, 0.25);
+
+
+
+                        // Inimigo Morto
+
+                        if (enemy.hp <= 0) {
+
+                            sfx.playEnemyDie();
+
+                            createParticles(enemy.mesh.position, 0x4ae036, 25, 0.4);
+
+                            scene.remove(enemy.mesh);
+
+                            enemies.splice(j, 1);
+
+
+
+                            gameState.score += 100;
+
+                            gameState.kills++;
+
+                            gameState.enemiesRemaining--;
+
+
+
+                            document.getElementById('score-text').innerText = gameState.score.toString().padStart(4, '0');
+
+                            document.getElementById('enemies-left-text').innerText = gameState.enemiesRemaining;
+
+
+
+                            // Verificar se limpou a onda
+
+                            if (gameState.enemiesRemaining <= 0 && enemies.length === 0) {
+
+                                setTimeout(() => startWave(gameState.wave + 1), 1500);
+
+                            }
+
+                        }
+
+                        break;
+
+                    }
+
+                }
+
+
+
+                // Remover projetil fora do tempo ou limite do mapa
+
+                if (hit || b.life <= 0 || Math.abs(b.mesh.position.x) > 40 || Math.abs(b.mesh.position.z) > 40) {
+
+                    scene.remove(b.mesh);
+
+                    bullets.splice(i, 1);
+
+                }
+
+            }
+
+        }
+
+
+
+        // Atualização dos Inimigos (IA de Perseguição)
+
+        function updateEnemies() {
+
+            for (let i = 0; i < enemies.length; i++) {
+
+                const enemy = enemies[i];
+
+
+
+                // Direção até o Jogador
+
+                const dir = new THREE.Vector3().subVectors(playerGroup.position, enemy.mesh.position);
+
+                dir.y = 0;
+
+                const dist = dir.length();
+
+                dir.normalize();
+
+
+
+                // Rotacionar inimigo para encarar o jogador
+
+                enemy.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+
+
+
+                // Mover em direção ao jogador
+
+                if (dist > 1.1) {
+
+                    enemy.mesh.position.addScaledVector(dir, enemy.speed);
+
+                } else {
+
+                    // Inimigo ataca o jogador por contato
+
+                    const now = performance.now();
+
+                    if (!enemy.lastAttack || now - enemy.lastAttack > 800) {
+
+                        enemy.lastAttack = now;
+
+                        takeDamage(12);
+
+                    }
+
+                }
+
+
+
+                // Animação de corrida simples dos monstros
+
+                const runTime = Date.now() * 0.01 + i;
+
+                enemy.mesh.position.y = Math.abs(Math.sin(runTime)) * 0.15;
+
+            }
+
+        }
+
+
+
+        // Atualização de Partículas Visuais
+
+        function updateParticles() {
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+
+                const p = particles[i];
+
+                p.mesh.position.add(p.vel);
+
+                p.life--;
+
+
+
+                p.mesh.scale.multiplyScalar(0.92);
+
+
+
+                if (p.life <= 0) {
+
+                    scene.remove(p.mesh);
+
+                    particles.splice(i, 1);
+
+                }
+
+            }
+
+        }
+
+
+
+        // --- RECEBER DANO E GAME OVER ---
+
+        function takeDamage(amount) {
+
+            gameState.playerHp = Math.max(0, gameState.playerHp - amount);
+
+
+
+            sfx.playPlayerHit();
+
+
+
+            // Atualizar HUD de HP
+
+            const hpPct = (gameState.playerHp / gameState.maxHp) * 100;
+
+            const hpBar = document.getElementById('hp-bar');
+
+            const hpText = document.getElementById('hp-text');
+
+
+
+            hpBar.style.width = `${hpPct}%`;
+
+            hpText.innerText = `${gameState.playerHp} / ${gameState.maxHp}`;
+
+
+
+            // Flash de tela vermelha
+
+            const flash = document.getElementById('damage-flash');
+
+            flash.style.opacity = '1';
+
+            setTimeout(() => { flash.style.opacity = '0'; }, 150);
+
+
+
+            // Game Over
+
+            if (gameState.playerHp <= 0) {
+
+                gameOver();
+
+            }
+
+        }
+
+
+
+        function gameOver() {
+
+            gameState.isPlaying = false;
+
+
+
+            document.getElementById('final-score').innerText = gameState.score;
+
+            document.getElementById('final-kills').innerText = gameState.kills;
+
+            document.getElementById('game-over-screen').classList.remove('hidden');
+
+        }
+
+
+
+        function resetGame() {
+
+            // Limpar inimigos
+
+            enemies.forEach(e => scene.remove(e.mesh));
+
+            enemies = [];
+
+
+
+            // Limpar tiros
+
+            bullets.forEach(b => scene.remove(b.mesh));
+
+            bullets = [];
+
+
+
+            // Resetar status
+
+            gameState.score = 0;
+
+            gameState.kills = 0;
+
+            gameState.playerHp = 100;
+
+            gameState.isPlaying = true;
+
+
+
+            playerGroup.position.set(0, 0, 0);
+
+
+
+            // Atualizar HUD
+
+            document.getElementById('score-text').innerText = '0000';
+
+            document.getElementById('hp-bar').style.width = '100%';
+
+            document.getElementById('hp-text').innerText = '100 / 100';
+
+            document.getElementById('game-over-screen').classList.add('hidden');
+
+
+
+            startWave(1);
+
+        }
+
+
+
+        // --- EVENTOS E INICIALIZAÇÃO ---
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        }
+
+
+
+        window.onload = () => {
+
+            initScene();
+
+            animate();
+
+
+
+            // Botão de Início
+
+            document.getElementById('start-btn').addEventListener('click', () => {
+
+                sfx.init();
+
+                document.getElementById('start-screen').classList.add('hidden');
+
+                gameState.isPlaying = true;
+
+                startWave(1);
+
+            });
+
+
+
+            // Botão de Reiniciar
+
+            document.getElementById('restart-btn').addEventListener('click', () => {
+
+                resetGame();
+
+            });
+
+        };
+
+    </script>
+
+</body>
+
+</html>
